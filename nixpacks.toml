@@ -1,11 +1,11 @@
 # Coolify deploy config (Nixpacks build pack).
 # Uses bun (bun.lock is the lockfile of record); node is kept alongside it
-# since Next's CLI binary is invoked via a node shebang.
-# gcc/gnumake/python3 are here for better-sqlite3's native build fallback if
-# no prebuilt binary matches the image's node ABI/arch.
+# since Next's CLI binary is invoked via a node shebang. No native-toolchain
+# packages needed — sharp is the only compiled dependency left and ships a
+# prebuilt binary for linux-x64 glibc.
 
 [phases.setup]
-nixPkgs = ['nodejs_22', 'bun', 'gcc', 'gnumake', 'python3']
+nixPkgs = ['nodejs_22', 'bun']
 
 [phases.install]
 cmds = ['bun install --frozen-lockfile']
