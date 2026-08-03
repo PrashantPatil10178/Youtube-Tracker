@@ -3,10 +3,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 type SarvamAuthShellProps = {
-  /**
-   * Optional Season Mix headline. Clerk-driven forms leave this unset and
-   * render their own step-aware header instead.
-   */
+  /** Season Mix headline, e.g. "Log into your account". */
   title?: string;
   /** Matter subtext under the headline. */
   subtitle?: string;
@@ -14,8 +11,9 @@ type SarvamAuthShellProps = {
 };
 
 /**
- * Split auth layout in the Sarvam design language: the gradient/noise panel
- * from the landing CTA on the left, the form rail on the right.
+ * Split auth layout: the gradient/noise brand panel from the landing CTA on
+ * the left, a centered pill-field form (circular mark, serif headline) on
+ * the right.
  */
 export function SarvamAuthShell({ title, subtitle, children }: SarvamAuthShellProps) {
   return (
@@ -74,50 +72,46 @@ export function SarvamAuthShell({ title, subtitle, children }: SarvamAuthShellPr
         </div>
       </div>
 
-      {/* Form rail */}
-      <div className='relative flex flex-1 flex-col'>
-        <div className='flex items-center justify-between px-6 pt-6 lg:justify-end lg:px-10 lg:pt-8'>
-          <Link href='/' className='lg:hidden'>
-            <Wordmark className='text-[18px]' />
-          </Link>
+      {/* Form rail — centered, pill fields */}
+      <div className='flex flex-1 flex-col items-center justify-center px-6 py-16'>
+        <div className='flex w-full max-w-[400px] flex-col items-center gap-8'>
           <Link
             href='/'
-            className='font-matter text-tx-tertiary hover:text-tx text-[13px] tracking-[1px] uppercase transition-colors'
+            aria-label='ChannelIQ home'
+            className='border-tx/12 text-tx flex h-14 w-14 shrink-0 items-center justify-center rounded-full border transition-colors hover:border-tx/25'
           >
-            Back to site
+            <span className='font-season-mix text-[15px] tracking-[-0.02em]'>
+              iq<span className='text-sr-indigo-600'>.</span>
+            </span>
           </Link>
+
+          {title && (
+            <div className='flex flex-col items-center gap-2.5 text-center'>
+              <h1 className='font-season-mix text-tx text-[30px] leading-[1.15] tracking-tight'>
+                {title}
+              </h1>
+              {subtitle && (
+                <p className='font-matter text-tx-tertiary text-[15px] leading-[155%]'>
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className='w-full'>{children}</div>
+
+          <p className='font-matter text-tx-tertiary/70 text-center text-xs'>
+            By continuing you agree to our{' '}
+            <Link href='/terms-of-service' className='hover:text-tx underline underline-offset-2'>
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link href='/privacy-policy' className='hover:text-tx underline underline-offset-2'>
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </div>
-
-        <div className='flex flex-1 items-center justify-center px-6 py-12 lg:px-10'>
-          <div className='flex w-full max-w-[400px] flex-col gap-8'>
-            {title && (
-              <div className='flex flex-col gap-2.5'>
-                <h1 className='font-season-mix text-tx text-[32px] leading-[1.15] tracking-tight'>
-                  {title}
-                </h1>
-                {subtitle && (
-                  <p className='font-matter text-tx-tertiary text-[15px] leading-[155%]'>
-                    {subtitle}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {children}
-          </div>
-        </div>
-
-        <p className='font-matter text-tx-tertiary/70 px-6 pb-8 text-center text-xs lg:px-10'>
-          By continuing you agree to our{' '}
-          <Link href='/terms-of-service' className='hover:text-tx underline underline-offset-2'>
-            Terms of Service
-          </Link>{' '}
-          and{' '}
-          <Link href='/privacy-policy' className='hover:text-tx underline underline-offset-2'>
-            Privacy Policy
-          </Link>
-          .
-        </p>
       </div>
     </div>
   );

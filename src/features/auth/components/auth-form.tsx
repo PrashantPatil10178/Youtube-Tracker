@@ -10,6 +10,9 @@ import { useState } from 'react';
 
 type Mode = 'sign-in' | 'sign-up';
 
+const fieldClass =
+  'h-14 rounded-full border-tx/10 bg-white px-6 text-[15px] placeholder:text-tx-tertiary/60 focus-visible:border-sr-indigo-600 focus-visible:ring-sr-indigo-600/20';
+
 /** Email + password form backed by Better Auth. */
 export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
@@ -45,22 +48,27 @@ export function AuthForm({ mode }: { mode: Mode }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
+    <form onSubmit={handleSubmit} className='flex flex-col gap-3'>
       {isSignUp && (
         <div className='grid gap-2'>
-          <Label htmlFor='name'>Name</Label>
+          <Label htmlFor='name' className='sr-only'>
+            Name
+          </Label>
           <Input
             id='name'
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoComplete='name'
             placeholder='Your name'
+            className={fieldClass}
           />
         </div>
       )}
 
       <div className='grid gap-2'>
-        <Label htmlFor='email'>Email</Label>
+        <Label htmlFor='email' className='sr-only'>
+          Email
+        </Label>
         <Input
           id='email'
           type='email'
@@ -68,12 +76,15 @@ export function AuthForm({ mode }: { mode: Mode }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete='email'
-          placeholder='you@example.com'
+          placeholder='e.g., name@company.com'
+          className={fieldClass}
         />
       </div>
 
       <div className='grid gap-2'>
-        <Label htmlFor='password'>Password</Label>
+        <Label htmlFor='password' className='sr-only'>
+          Password
+        </Label>
         <Input
           id='password'
           type='password'
@@ -82,27 +93,32 @@ export function AuthForm({ mode }: { mode: Mode }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete={isSignUp ? 'new-password' : 'current-password'}
-          placeholder={isSignUp ? 'At least 8 characters' : '••••••••'}
+          placeholder={isSignUp ? 'At least 8 characters' : 'Password'}
+          className={fieldClass}
         />
       </div>
 
       {error && (
-        <p role='alert' className='text-destructive text-sm'>
+        <p role='alert' className='text-destructive px-1 text-sm'>
           {error}
         </p>
       )}
 
-      <Button type='submit' disabled={pending} className='w-full'>
+      <Button
+        type='submit'
+        disabled={pending}
+        className='bg-tx hover:bg-tx/85 mt-1 h-14 w-full rounded-full text-[15px] font-medium text-white'
+      >
         {pending ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
       </Button>
 
-      <p className='text-muted-foreground text-center text-sm'>
-        {isSignUp ? 'Already have an account? ' : 'Don’t have an account? '}
+      <p className='font-matter text-tx-tertiary mt-1 text-center text-sm'>
+        {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
         <Link
           href={isSignUp ? '/auth/sign-in' : '/auth/sign-up'}
-          className='text-primary underline underline-offset-4'
+          className='text-sr-indigo-600 underline-offset-4 hover:underline'
         >
-          {isSignUp ? 'Sign in' : 'Sign up'}
+          {isSignUp ? 'Sign in' : 'Create one'}
         </Link>
       </p>
     </form>
