@@ -1,0 +1,21 @@
+# Coolify deploy config (Nixpacks build pack).
+# Uses bun (bun.lock is the lockfile of record); node is kept alongside it
+# since Next's CLI binary is invoked via a node shebang.
+# gcc/gnumake/python3 are here for better-sqlite3's native build fallback if
+# no prebuilt binary matches the image's node ABI/arch.
+
+[phases.setup]
+nixPkgs = ['nodejs_22', 'bun', 'gcc', 'gnumake', 'python3']
+
+[phases.install]
+cmds = ['bun install --frozen-lockfile']
+
+[phases.build]
+cmds = ['bun run build']
+
+[start]
+cmd = 'bun run start -- -p ${PORT:-3000}'
+
+[variables]
+NODE_ENV = 'production'
+NEXT_TELEMETRY_DISABLED = '1'

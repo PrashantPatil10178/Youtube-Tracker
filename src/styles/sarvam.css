@@ -1,0 +1,305 @@
+/* ---------------------------------------------------------------------------
+   Sarvam design system
+   Fonts, semantic tokens, palette and motion primitives extracted from the
+   production sarvam.ai stylesheet. Scoped so it never collides with the
+   dashboard theme system — landing surfaces opt in via `font-matter` / `bg-sf`.
+--------------------------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Matter';
+  src:
+    url('/fonts/MatterUprights-VF.woff2') format('woff2-variations'),
+    url('/fonts/MatterUprights-VF.woff') format('woff');
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Matter Semi Mono';
+  src: url('/fonts/MatterSemiMonoRegular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Season Mix';
+  src:
+    url('/fonts/SeasonMixVFUprights.woff2') format('woff2-variations'),
+    url('/fonts/SeasonMixVFUprights.woff') format('woff');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* Typefaces */
+  --font-matter: 'Matter', sans-serif;
+  --font-matter-mono: 'Matter Semi Mono', monospace;
+  --font-season-mix: 'Season Mix', sans-serif;
+
+  /* Layout rails */
+  --spacing-width-mx: 1400px;
+  --spacing-height-mx: 1080px;
+
+  /* Text */
+  --color-tx: #1f1f1f;
+  --color-tx-secondary: #3d3d3d;
+  --color-tx-tertiary: #666666;
+  --color-tx-inverse: #faf8f5;
+  --color-tx-brand: #29211d;
+  --color-tx-accent: #c4733d;
+
+  /* Surfaces */
+  --color-sf: #fafafa;
+  --color-sf-secondary: #f5f5f5;
+  --color-sf-tertiary: #f0f0f0;
+  --color-sf-quaternary: #e6e6e6;
+
+  /* Strokes */
+  --color-st: #e6e6e6;
+  --color-st-secondary: #f0f0f0;
+
+  /* Brand */
+  --color-br-orange: #d5650f;
+  --color-br-blue: #393cc1;
+
+  /* Palette — indigo */
+  --color-sr-indigo-50: #fafcff;
+  --color-sr-indigo-100: #e8effc;
+  --color-sr-indigo-200: #d2dff9;
+  --color-sr-indigo-300: #a7c0f1;
+  --color-sr-indigo-400: #81a0e9;
+  --color-sr-indigo-500: #6a88e2;
+  --color-sr-indigo-600: #556adc;
+  --color-sr-indigo-700: #4250d5;
+  --color-sr-indigo-800: #3333cc;
+  --color-sr-indigo-900: #212191;
+  --color-sr-indigo-950: #11115b;
+
+  /* Palette — orange */
+  --color-sr-orange-50: #fffbfa;
+  --color-sr-orange-100: #feede6;
+  --color-sr-orange-200: #fddcce;
+  --color-sr-orange-300: #f9bb9e;
+  --color-sr-orange-400: #f59970;
+  --color-sr-orange-500: #f38858;
+  --color-sr-orange-600: #ee7944;
+  --color-sr-orange-700: #e96c2f;
+  --color-sr-orange-800: #e6651b;
+  --color-sr-orange-900: #a5460f;
+  --color-sr-orange-950: #682906;
+
+  /* Palette — green */
+  --color-sr-green-50: #f2f8eb;
+  --color-sr-green-100: #e3f1d8;
+  --color-sr-green-200: #c8e4b0;
+  --color-sr-green-300: #acd587;
+  --color-sr-green-400: #90c85b;
+  --color-sr-green-500: #83c040;
+  --color-sr-green-600: #6ea335;
+  --color-sr-green-700: #496d21;
+  --color-sr-green-800: #385418;
+  --color-sr-green-1000: #152605;
+
+  /* Palette — pink */
+  --color-sr-pink-50: #fceaf0;
+  --color-sr-pink-100: #f9d5e1;
+  --color-sr-pink-200: #efabc5;
+  --color-sr-pink-400: #d4508e;
+  --color-sr-pink-500: #b12060;
+  --color-sr-pink-600: #9d2055;
+  --color-sr-pink-700: #871f4b;
+  --color-sr-pink-800: #731e3f;
+  --color-sr-pink-950: #4d192c;
+
+  /* Palette — red */
+  --color-sr-red-50: #fde7e2;
+  --color-sr-red-100: #f8d1c6;
+  --color-sr-red-200: #eba18f;
+  --color-sr-red-300: #db715c;
+  --color-sr-red-400: #c43d2b;
+  --color-sr-red-500: #b81514;
+  --color-sr-red-600: #a21913;
+  --color-sr-red-700: #781a11;
+  --color-sr-red-800: #781a11;
+
+  /* Palette — yellow */
+  --color-sr-yellow-50: #fff8e6;
+  --color-sr-yellow-100: #fff0cf;
+  --color-sr-yellow-200: #ffe8b7;
+  --color-sr-yellow-300: #ffcb79;
+  --color-sr-yellow-400: #ffb94a;
+  --color-sr-yellow-500: #feb12b;
+  --color-sr-yellow-600: #df9c2a;
+  --color-sr-yellow-700: #c08827;
+  --color-sr-yellow-800: #a27224;
+  --color-sr-yellow-950: #362813;
+
+  /* Palette — grey */
+  --color-sr-grey-50: #f9f9f9;
+  --color-sr-grey-100: #f5f5f5;
+  --color-sr-grey-200: #f0f0f0;
+  --color-sr-grey-300: #e6e6e6;
+  --color-sr-grey-400: #cccccc;
+  --color-sr-grey-500: #b3b3b3;
+  --color-sr-grey-600: #999999;
+  --color-sr-grey-700: #666666;
+  --color-sr-grey-800: #525252;
+  --color-sr-grey-950: #292929;
+  --color-sr-black: #141414;
+
+  /* Content */
+  --color-ct-primary: #141414;
+  --color-ct-secondary: #666666;
+  --color-ct-tertiary: #999999;
+  --color-ct-quaternary: #b3b3b3;
+  --color-ct-accent-indigo: #3333cc;
+  --color-ct-accent-orange: #e6651b;
+  --color-ct-positive-primary: #6ea335;
+  --color-ct-danger-primary: #b81514;
+
+  /* Motion */
+  --animate-wiggle: wiggle 0.8s ease-in-out;
+  --animate-marquee: marquee 100s linear infinite;
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    rotate: none;
+  }
+  20% {
+    rotate: -1.5deg;
+  }
+  40% {
+    rotate: 1.2deg;
+  }
+  60% {
+    rotate: -0.8deg;
+  }
+  80% {
+    rotate: 0.5deg;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* Matter and Season Mix are variable faces whose optical weights are offset
+   from the CSS defaults — sarvam.ai remaps the weight scale per family so
+   `font-medium` etc. resolve to the intended axis position. */
+.font-matter {
+  --font-weight-thin: 100;
+  --font-weight-light: 325;
+  --font-weight-normal: 425;
+  --font-weight-medium: 525;
+  --font-weight-semibold: 625;
+  --font-weight-bold: 725;
+  --font-weight-extrabold: 900;
+  --font-weight-black: 1000;
+}
+
+.font-season-mix {
+  --font-weight-light: 300;
+  --font-weight-normal: 425;
+  --font-weight-medium: 525;
+  --font-weight-semibold: 670;
+  --font-weight-bold: 780;
+  --font-weight-extrabold: 900;
+}
+
+/* Scroll-driven reveals. Elements start hidden only when JS can restore them;
+   `no-js` keeps content visible. */
+@media (min-width: 768px) {
+  .section-heading-reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition:
+      opacity 0.7s ease-out,
+      transform 0.7s ease-out;
+  }
+
+  .section-heading-reveal.is-revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.8s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.8s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.section-reveal.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scale-reveal {
+  opacity: 0;
+  transform: scale(0.94);
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0, 0, 1),
+    transform 0.9s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.scale-reveal.is-revealed {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Wordmark bloom on the "Powering India's AI-first future" panel */
+.mark-bloom {
+  opacity: 0;
+  filter: blur(5px) brightness(2);
+  transform: scale(0.5) rotate(90deg);
+  transition:
+    opacity 1.1s cubic-bezier(0.2, 0, 0, 1),
+    filter 1.1s cubic-bezier(0.2, 0, 0, 1),
+    transform 1.1s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.mark-bloom.is-revealed {
+  opacity: 0.9;
+  filter: blur(0) brightness(1);
+  transform: scale(1) rotate(0deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-heading-reveal,
+  .section-reveal,
+  .scale-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .mark-bloom {
+    opacity: 0.9;
+    filter: none;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Grain overlay used on dark CTA panels */
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url('/sarvam/misc/noise.webp');
+  background-size: 80% 80%;
+  opacity: 0.06;
+}
