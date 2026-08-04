@@ -8,10 +8,7 @@ export const metadata: Metadata = {
 
 export default function ChannelsPage() {
   return (
-    <PageContainer
-      pageTitle='Channels'
-      pageDescription='Track any YouTube channel — no API key required.'
-    >
+    <PageContainer pageTitle='Channels'>
       <ChannelsView />
     </PageContainer>
   );
