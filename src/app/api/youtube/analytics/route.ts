@@ -11,7 +11,6 @@ import {
   uploadCadenceDays,
   engagementRate
 } from '@/lib/youtube/metrics';
-import { fetchChannelFeed } from '@/lib/youtube/rss';
 import { captureSnapshot, getChannelDelta, getRecentChanges } from '@/lib/youtube/snapshots';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -42,64 +41,60 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `No channel matched “${query}”.` }, { status: 404 });
     }
 
-    const [summary, feed] = await Promise.all([
+    const [summary, deep] = await Promise.all([
       fetchChannelSummary(channelId),
-      fetchChannelFeed(channelId)
+      fetchChannelVideos(channelId, 90)
     ]);
 
-    // RSS caps at 15 uploads. Channels that publish several times a day have
-    // nothing older than a week in that window, so no maturity baseline forms
-    // and every outlier score comes back null. Fall back to deep history.
-    let source: VideoStat[] = feed.videos;
-    let sampleSource: 'rss' | 'deep' = 'rss';
+    // Thumbnails come straight off the deep listing — no separate lookup, and
+    // no RSS fallback needed for it either.
+    const thumbnailById = new Map(deep.map((v) => [v.videoId, v.thumbnail]));
+
+    // Used to run off RSS's 15-item window, falling back to a 90-item deep walk
+    // only when that couldn't form a maturity baseline. RSS turned out to have
+    // no uptime guarantee of its own (404/500 for every channel as of
+    // 2026-08-04), so deep history is now the only source — see
+    // `fetchRecentVideos` in client.ts for the shallower callers' version of
+    // this same change.
+    let source: VideoStat[] = deep
+      .filter((v) => v.publishedAt && v.views !== null)
+      .map((v) => ({
+        videoId: v.videoId,
+        title: v.title,
+        publishedAt: v.publishedAt as string,
+        views: v.views
+      }));
+    const sampleSource = 'deep' as const;
     let preciseCount = 0;
 
-    if (!scoreVideos(feed.videos).baseline.reliable) {
-      const deep = await fetchChannelVideos(channelId, 90).catch(() => []);
-      const usable = deep.filter((v) => v.publishedAt && v.views !== null);
-      if (usable.length > feed.videos.length) {
-        source = usable.map((v) => ({
-          videoId: v.videoId,
-          title: v.title,
-          publishedAt: v.publishedAt as string,
-          views: v.views
-        }));
-        sampleSource = 'deep';
-      }
-    }
-
     // The deep listing rounds view counts (13,982 reported as "13K"), and that
-    // error propagates straight into every outlier score. RSS is already exact,
-    // so this only runs on the deep path — and only over the newest slice, one
-    // request per video being far too expensive to spend on the whole history.
-    if (sampleSource === 'deep') {
-      const newest = source
-        .toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
-        .slice(0, PRECISE_LIMIT);
+    // error propagates straight into every outlier score. Only the newest slice
+    // gets exact figures — one request per video is far too expensive to spend
+    // on the whole history.
+    const newest = source
+      .toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
+      .slice(0, PRECISE_LIMIT);
 
-      const precise = await fetchPreciseStats(newest.map((v) => v.videoId)).catch(
-        () => new Map<string, { views: number | null; likes: number | null; keywords: string[] }>()
-      );
+    const precise = await fetchPreciseStats(newest.map((v) => v.videoId)).catch(
+      () => new Map<string, { views: number | null; likes: number | null; keywords: string[] }>()
+    );
 
-      if (precise.size > 0) {
-        // Likes ride along with the exact view count from the same `getInfo`
-        // call. Without this, `engagementRate` silently fell back to RSS's
-        // star-rating count on every video here — which YouTube barely
-        // populates anymore — so the channel card's engagement figures were
-        // almost always blank even on the deep-history path that pays for
-        // exact per-video data specifically to be accurate.
-        source = source.map((v) => {
-          const exact = precise.get(v.videoId);
-          if (!exact) return v;
-          return {
-            ...v,
-            views: exact.views ?? v.views,
-            likes: exact.likes,
-            keywords: exact.keywords
-          };
-        });
-        preciseCount = precise.size;
-      }
+    if (precise.size > 0) {
+      // Likes ride along with the exact view count from the same `getInfo`
+      // call — without this, `engagementRate` falls back to a rating count
+      // YouTube barely populates anymore, and the channel card's engagement
+      // figures come back blank.
+      source = source.map((v) => {
+        const exact = precise.get(v.videoId);
+        if (!exact) return v;
+        return {
+          ...v,
+          views: exact.views ?? v.views,
+          likes: exact.likes,
+          keywords: exact.keywords
+        };
+      });
+      preciseCount = precise.size;
     }
 
     const { baseline, videos } = scoreVideos(source);
@@ -108,11 +103,9 @@ export async function GET(request: NextRequest) {
       .map((video) => ({
         ...video,
         thumbnail:
-          feed.videos.find((v) => v.videoId === video.videoId)?.thumbnail ??
+          thumbnailById.get(video.videoId) ??
           `https://i.ytimg.com/vi/${video.videoId}/hqdefault.jpg`,
-        url:
-          feed.videos.find((v) => v.videoId === video.videoId)?.url ??
-          `https://www.youtube.com/watch?v=${video.videoId}`,
+        url: `https://www.youtube.com/watch?v=${video.videoId}`,
         engagement: engagementRate(video)
       }))
       .toSorted((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));

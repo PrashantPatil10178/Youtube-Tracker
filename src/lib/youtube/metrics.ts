@@ -1,8 +1,8 @@
 /**
  * Derived performance metrics.
  *
- * Everything here is computed from data the RSS feed already gives us
- * (views + publish time), so none of it costs an extra request. Pure functions,
+ * Everything here is computed from data callers already fetched (views +
+ * publish time), so none of it costs an extra request. Pure functions,
  * no I/O — safe to import from client components.
  */
 

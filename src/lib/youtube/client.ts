@@ -5,6 +5,8 @@ import 'server-only';
 
 import { Innertube, Log } from 'youtubei.js';
 
+import type { VideoStat } from './metrics';
+
 // InnerTube's renderer parser warns loudly about cosmetic mismatches it then
 // recovers from ("Unable to find matching run for attachment run"). Those are
 // noise, not failures — keep errors, drop the rest.
@@ -512,8 +514,9 @@ async function collectTab(
  *
  * Caveat: YouTube only exposes *relative* publish dates on the Videos/Live
  * tabs ("4 days ago"), so `publishedAt` is approximate there, and Shorts carry
- * no date signal at all (see `parseShortsItem`). RSS remains the source of
- * truth for exact timestamps on recent uploads.
+ * no date signal at all (see `parseShortsItem`). Nothing in this app treats
+ * that as exact any more — RSS used to, but it turned out to have no uptime
+ * guarantee of its own (see `fetchRecentVideos` below).
  */
 export async function fetchChannelVideos(channelId: string, limit = 90): Promise<DeepVideo[]> {
   const channel: any = await withYouTube((client) => client.getChannel(channelId));
@@ -553,4 +556,55 @@ export async function fetchChannelVideos(channelId: string, limit = 90): Promise
   });
 
   return merged.slice(0, limit);
+}
+
+export type RecentVideo = VideoStat & { thumbnail: string | null };
+
+/**
+ * Recent uploads with view counts — the InnerTube replacement for the RSS
+ * feed as this app's primary "what's new" source.
+ *
+ * RSS (`fetchChannelFeed`) is a static file with no uptime guarantee of its
+ * own; on 2026-08-04 `www.youtube.com/feeds/videos.xml` started returning
+ * 404/500 for every channel, taking down every page that depended on it. This
+ * only ever touches the same InnerTube session everything else here already
+ * uses.
+ *
+ * The channel listing's own view counts are rounded ("13K"). By default the
+ * slice is enriched with `fetchPreciseStats` — the same exact-views/likes/
+ * keywords call the deep-history fallback already used — but that costs one
+ * request per video, which is fine for a single channel and expensive fanned
+ * out across a whole workspace; pass `precise: false` there and accept the
+ * rounded figures. Undated Shorts are dropped either way:
+ * `VideoStat.publishedAt` is required, and there is no reliable timestamp to
+ * give them (see `DeepVideo.publishedAt`).
+ */
+export async function fetchRecentVideos(
+  channelId: string,
+  limit = 15,
+  { precise = true }: { precise?: boolean } = {}
+): Promise<RecentVideo[]> {
+  const deep = await fetchChannelVideos(channelId, limit);
+  const dated = deep.filter(
+    (v): v is DeepVideo & { publishedAt: string } => v.publishedAt !== null
+  );
+
+  const exactStats = precise
+    ? await fetchPreciseStats(dated.map((v) => v.videoId)).catch(
+        () => new Map<string, PreciseStat>()
+      )
+    : new Map<string, PreciseStat>();
+
+  return dated.map((v) => {
+    const exact = exactStats.get(v.videoId);
+    return {
+      videoId: v.videoId,
+      title: v.title,
+      publishedAt: v.publishedAt,
+      views: exact?.views ?? v.views,
+      likes: exact?.likes,
+      keywords: exact?.keywords ?? [],
+      thumbnail: v.thumbnail
+    };
+  });
 }

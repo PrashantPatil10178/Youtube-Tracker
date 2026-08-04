@@ -2,10 +2,7 @@ import 'server-only';
 
 import type { RosterChannel } from '@/features/youtube/config/roster';
 
-import { resolveChannelId } from './client';
-import { fetchChannelSummary } from './client';
-import { fetchChannelVideos } from './client';
-import { fetchChannelFeed } from './rss';
+import { fetchChannelSummary, fetchChannelVideos, resolveChannelId } from './client';
 import { getChannelDelta } from './snapshots';
 
 /**
@@ -20,9 +17,14 @@ import { getChannelDelta } from './snapshots';
  * rounding steps ranks noise.
  *
  * Upload counts are a floor rather than an exact figure whenever a channel
- * published more than the RSS feed's 15-item window can show — flagged, not
- * silently rounded down. An exact count needs accumulated nightly history,
- * which the snapshot tables build over time.
+ * published more than one fetch's limit can show, or has undated Shorts in the
+ * window — the Shorts shelf carries no date signal at all, so those can't be
+ * placed in a window and are dropped rather than guessed at. Flagged, not
+ * silently rounded down. This used to union RSS (exact timestamps, capped at
+ * 15) with the deep listing for the best floor available from one read; RSS
+ * stopped resolving entirely as of 2026-08-04 (404/500 for every channel), so
+ * the deep listing — which already merges Videos, Shorts and Live — is now the
+ * only source.
  */
 
 export type LeaderboardRow = {
@@ -67,6 +69,13 @@ async function poolMap<T, R>(items: T[], limit: number, job: (item: T) => Promis
   return out;
 }
 
+/**
+ * How many uploads a single deep-listing read walks each of the Videos/Shorts/
+ * Live tabs to. Reaching this on any tab is the truncation signal — it means
+ * there may be more uploads in the window than this read can see.
+ */
+const DEEP_LIMIT = 120;
+
 export async function computeLeaderboard(
   channels: RosterChannel[],
   windowDays = 7
@@ -82,36 +91,21 @@ export async function computeLeaderboard(
         return null;
       }
 
-      const [summary, feed, delta] = await Promise.all([
+      const [summary, deep, delta] = await Promise.all([
         fetchChannelSummary(channelId),
-        fetchChannelFeed(channelId),
+        fetchChannelVideos(channelId, DEEP_LIMIT),
         getChannelDelta(channelId, windowDays * 24).catch(() => null)
       ]);
 
-      const rssRecent = feed.videos.filter((v) => Date.parse(v.publishedAt) >= cutoff);
-
-      // Neither source alone can count uploads in a window:
-      //   - RSS carries exact timestamps but stops at 15 items.
-      //   - The deep Videos tab goes deeper but omits Shorts and live streams,
-      //     which for these channels is a large share of output.
-      // Union them by video id for the best floor available from one read, and
-      // flag the result as truncated when RSS was saturated, since the true
-      // number is then unknown and strictly larger.
-      const rssSaturated = feed.videos.length >= 15 && rssRecent.length === feed.videos.length;
+      // Undated Shorts (the Shorts shelf carries no date signal at all) can't
+      // be placed in a window and are dropped rather than guessed at.
+      const inWindow = deep.filter((v) => v.publishedAt && Date.parse(v.publishedAt) >= cutoff);
 
       const seen = new Map<string, number | null>();
-      for (const v of rssRecent) seen.set(v.videoId, v.views);
-
-      if (rssSaturated) {
-        const deep = await fetchChannelVideos(channelId, 120).catch(() => []);
-        for (const v of deep) {
-          if (!v.publishedAt || Date.parse(v.publishedAt) < cutoff) continue;
-          if (!seen.has(v.videoId)) seen.set(v.videoId, v.views);
-        }
-      }
+      for (const v of inWindow) seen.set(v.videoId, v.views);
 
       const uploads = seen.size;
-      const uploadsTruncated = rssSaturated;
+      const uploadsTruncated = deep.length >= DEEP_LIMIT;
 
       // `windowViews` sums only the uploads inside the window. It is a floor:
       // views arriving on older videos are invisible to it. Named accordingly

@@ -3,19 +3,18 @@ import 'server-only';
 import { fetchChannelVideos } from './client';
 import type { ChannelBaseline, VideoStat } from './metrics';
 import { scoreVideos } from './metrics';
-import { fetchChannelFeed } from './rss';
 
 /**
  * Per-channel baselines, cached.
  *
  * A channel's median view count is the denominator of every outlier score, and
  * it moves slowly — over weeks, not hours. Recomputing it per request is what
- * made the cross-channel view unaffordable: RSS alone can't produce one for a
- * daily-uploading channel (nothing in its 15-video window is old enough to be
- * mature), and a deep walk per channel per request costs minutes.
+ * made the cross-channel view unaffordable: a 15-video window alone can't
+ * produce one for a daily-uploading channel (nothing in it is old enough to
+ * be mature), and a deep walk per channel per request costs minutes.
  *
  * So: compute once from deep history, reuse for a few hours, and score the
- * cheap RSS feed against it.
+ * cheap recent-uploads slice against it.
  *
  * In-process rather than in the database on purpose — it is derived data with
  * a short life, and a cold cache costs one extra fetch rather than a wrong
@@ -49,20 +48,26 @@ const globalForBaselines = globalThis as unknown as {
 const cache = (globalForBaselines.channelBaselineCache ??= new Map<string, Entry>());
 
 /**
- * The channel's baseline, from RSS when that's already reliable and from deep
- * history otherwise. Returns an unreliable baseline rather than throwing when
- * neither source yields enough mature videos — callers suppress scores on it.
+ * The channel's baseline, from the caller's already-fetched videos when
+ * given, and from deep history otherwise — callers suppress scores when the
+ * result comes back unreliable rather than this throwing.
  */
 export async function getChannelBaseline(
   channelId: string,
-  rssVideos?: VideoStat[]
+  knownVideos?: VideoStat[]
 ): Promise<ChannelBaseline> {
   const cached = cache.get(channelId);
   if (cached && cached.version === SCHEMA_VERSION && cached.expiresAt > Date.now()) {
     return cached.baseline;
   }
 
-  const feed = rssVideos ?? (await fetchChannelFeed(channelId)).videos;
+  const feed =
+    knownVideos ??
+    (await fetchChannelVideos(channelId, 90)).flatMap((v) =>
+      v.publishedAt && v.views !== null
+        ? [{ videoId: v.videoId, title: v.title, publishedAt: v.publishedAt, views: v.views }]
+        : []
+    );
   let { baseline } = scoreVideos(feed);
 
   let degraded = false;

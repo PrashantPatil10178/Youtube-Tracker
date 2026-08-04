@@ -1,8 +1,7 @@
 import { AIRefusalError, isAIEnabled } from '@/lib/ai/client';
 import { generateDigest } from '@/lib/ai/digest';
-import { fetchChannelSummary, resolveChannelId } from '@/lib/youtube/client';
+import { fetchChannelSummary, fetchRecentVideos, resolveChannelId } from '@/lib/youtube/client';
 import { projectViews, scoreVideos, uploadCadenceDays } from '@/lib/youtube/metrics';
-import { fetchChannelFeed } from '@/lib/youtube/rss';
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
@@ -25,19 +24,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `No channel matched “${query}”.` }, { status: 404 });
     }
 
-    const [summary, feed] = await Promise.all([
+    const [summary, recent] = await Promise.all([
       fetchChannelSummary(channelId),
-      fetchChannelFeed(channelId)
+      fetchRecentVideos(channelId)
     ]);
 
-    const { baseline, videos } = scoreVideos(feed.videos);
+    const { baseline, videos } = scoreVideos(recent);
 
     const digest = await generateDigest({
       channelTitle: summary.title,
       subscribers: summary.subscribers,
       medianViews: baseline.medianViews,
-      cadenceDays: uploadCadenceDays(feed.videos),
-      projectedNext30: projectViews(feed.videos, 30)?.projected ?? null,
+      cadenceDays: uploadCadenceDays(recent),
+      projectedNext30: projectViews(recent, 30)?.projected ?? null,
       videos
     });
 

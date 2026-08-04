@@ -1,13 +1,14 @@
-import { fetchChannelSummary, resolveChannelId } from '@/lib/youtube/client';
-import { fetchChannelFeed } from '@/lib/youtube/rss';
+import { fetchChannelSummary, fetchRecentVideos, resolveChannelId } from '@/lib/youtube/client';
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
  * GET /api/youtube/channel?q=<@handle | UC… | url>
  *
  * Resolves any channel reference, then returns metadata plus the recent-upload
- * feed. Summary comes from InnerTube (subscribers, totals); the upload list
- * comes from RSS, which is far cheaper and needs no quota.
+ * list — both from InnerTube. This used to split the two: summary from
+ * InnerTube, uploads from RSS. RSS turned out to have no uptime guarantee of
+ * its own (404/500 for every channel as of 2026-08-04), so `fetchRecentVideos`
+ * now covers both.
  */
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get('q')?.trim();
@@ -27,16 +28,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Independent calls — run them together rather than in series.
-    const [summary, feed] = await Promise.all([
+    const [summary, videos] = await Promise.all([
       fetchChannelSummary(channelId),
-      fetchChannelFeed(channelId).catch(() => null)
+      fetchRecentVideos(channelId).catch(() => null)
     ]);
 
     return NextResponse.json(
       {
         channel: summary,
-        recentVideos: feed?.videos ?? [],
-        feedAvailable: feed !== null
+        recentVideos: videos ?? [],
+        feedAvailable: videos !== null
       },
       {
         headers: {

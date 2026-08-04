@@ -3,9 +3,8 @@ import 'server-only';
 import type { RosterChannel } from '@/features/youtube/config/roster';
 
 import { getChannelBaseline } from './baseline-cache';
-import { fetchChannelSummary, resolveChannelId } from './client';
+import { fetchChannelSummary, fetchRecentVideos, resolveChannelId } from './client';
 import { engagementRate, median, scoreVideo } from './metrics';
-import { fetchChannelFeed } from './rss';
 import { getChannelSample } from './sample-cache';
 import { getChangesForChannels, getDeltasForChannels } from './snapshots';
 import { classifyTitle, detectMedium } from './taxonomy';
@@ -84,10 +83,13 @@ export type WorkspaceVideoRow = {
 /**
  * Every recent upload across the workspace, scored and classified.
  *
- * Videos come from RSS — exact view counts and exact timestamps, one request
- * per channel, where a deep walk across ~19 channels would take minutes. The
- * baselines they are scored against come from the cache, because RSS alone
- * cannot form one for a daily-uploading channel.
+ * Videos come from InnerTube's channel listing, enriched with exact
+ * views/likes for the slice returned (see `fetchRecentVideos`). This used to
+ * be the RSS feed — one static-file request per channel — but RSS turned out
+ * to have no uptime guarantee of its own (it started returning 404/500 for
+ * every channel on 2026-08-04, taking every workspace page down with it).
+ * The baselines these are scored against come from the cache, because a
+ * 15-video window alone cannot form one for a daily-uploading channel.
  */
 export async function computeWorkspaceVideos(
   channels: RosterChannel[],
@@ -100,9 +102,10 @@ export async function computeWorkspaceVideos(
   /** Channel label → subscribers, for share-of-workspace charts. */
   const subscribers: Array<[string, number | null]> = [];
 
-  // RSS feeds are static files on YouTube's CDN, so this is bounded by latency
-  // rather than by anything rate-limited; 6 left most of the wait idle.
-  await pool(targets, 12, async (channel) => {
+  // Lower than the old RSS-only pool (12): InnerTube is a live, rate-limitable
+  // API rather than a static CDN file, and each channel now costs several
+  // requests (listing + precise stats), not one.
+  await pool(targets, 6, async (channel) => {
     try {
       const channelId = await resolveChannelId(channel.id);
       if (!channelId) {
@@ -110,27 +113,31 @@ export async function computeWorkspaceVideos(
         return;
       }
 
-      const [feed, summary] = await Promise.all([
-        fetchChannelFeed(channelId),
+      // precise: false — one request per video is fine for a single channel
+      // (see the analytics/digest routes) but not fanned out across a whole
+      // workspace here; the channel listing's own rounded views are enough
+      // for a "what's new" list.
+      const [recent, summary] = await Promise.all([
+        fetchRecentVideos(channelId, 15, { precise: false }),
         fetchChannelSummary(channelId).catch(() => null)
       ]);
       subscribers.push([channel.label, summary?.subscribers ?? null]);
 
       // Scored against this channel's own median, never a pooled one: a 500K
       // channel and a 17K channel share no meaningful absolute baseline.
-      const baseline = await getChannelBaseline(channelId, feed.videos);
+      const baseline = await getChannelBaseline(channelId, recent);
 
-      for (const source of feed.videos) {
+      for (const source of recent) {
         const video = scoreVideo(source, baseline);
-        const classification = classifyTitle(video.title);
+        const classification = classifyTitle(video.title, source.keywords);
 
         videos.push({
           channelId,
           channelLabel: channel.label,
           videoId: video.videoId,
           title: video.title,
-          url: source.url ?? `https://www.youtube.com/watch?v=${video.videoId}`,
-          thumbnail: source.thumbnail ?? null,
+          url: `https://www.youtube.com/watch?v=${video.videoId}`,
+          thumbnail: source.thumbnail,
           publishedAt: video.publishedAt,
           views: video.views,
           vph: video.vph,
