@@ -306,7 +306,12 @@ function createFormField<P extends object>(FieldComponent: React.ComponentType<P
         defaultValue={defaultValue}
       >
         {(fieldApi) => (
-          <fieldContext.Provider value={fieldApi}>
+          // `fieldContext`'s value type comes from react-form's internal FieldApi
+          // instantiation, which doesn't structurally unify with form-core's
+          // exported `AnyFieldApi` (both 1.33.3, but generic-parameter variance
+          // between the two entry points leaves a handful of methods TS can't
+          // prove line up). Runtime shape is identical either way.
+          <fieldContext.Provider value={fieldApi as never}>
             <FieldComponent {...(props as unknown as P)} />
           </fieldContext.Provider>
         )}
