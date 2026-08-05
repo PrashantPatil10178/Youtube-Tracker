@@ -46,12 +46,12 @@ export function useTrackedChannels() {
   const onSuccess = (data: ListResponse) => queryClient.setQueryData(KEY, data);
 
   const addMutation = useMutation({
-    mutationFn: (channelId: string) =>
+    mutationFn: (input: { channelId: string; title?: string }) =>
       request({
         url: '/api/channels',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId })
+        body: JSON.stringify(input)
       }),
     onSuccess
   });
@@ -84,17 +84,27 @@ export function useTrackedChannels() {
   return {
     channels: list.data?.channels ?? [],
     hydrated: !list.isPending,
-    error: (addMutation.error ?? list.error) as Error | null,
+    error: list.error as Error | null,
     isMutating:
       addMutation.isPending ||
       removeMutation.isPending ||
       resetMutation.isPending ||
       updateMutation.isPending,
-    add: (input: string) => {
+    // Async and caller-facing so the UI can decide what a duplicate means —
+    // e.g. attaching an already-tracked channel to a different workspace
+    // rather than surfacing "already tracked" as a dead end.
+    add: async (input: string, title?: string) => {
       const id = input.trim();
       if (!id) return { ok: false as const, reason: 'Enter a channel handle, ID or URL.' };
-      addMutation.mutate(id);
-      return { ok: true as const };
+      try {
+        const data = await addMutation.mutateAsync({ channelId: id, title });
+        return { ok: true as const, channels: data.channels };
+      } catch (err) {
+        return {
+          ok: false as const,
+          reason: err instanceof Error ? err.message : 'Could not track channel.'
+        };
+      }
     },
     remove: (channelId: string) => removeMutation.mutate(channelId),
     update: (channelId: string, patch: { group?: RosterGroup }) =>

@@ -141,14 +141,22 @@ export const videoSnapshot = pgTable(
   ]
 );
 
-/** A detected title or thumbnail swap between two consecutive snapshots. */
+/**
+ * A detected title swap between two consecutive snapshots.
+ *
+ * Thumbnail swaps used to be tracked here too (`field: 'thumbnail'`), but that
+ * compared CDN paths, which don't change when a creator actually replaces a
+ * thumbnail — only YouTube's internal processing state does. Old rows with
+ * `field = 'thumbnail'` may still exist; queries filter to `'title'` so they
+ * don't resurface.
+ */
 export const videoChange = pgTable(
   'video_change',
   {
     id: text('id').primaryKey(),
     channelId: text('channel_id').notNull(),
     videoId: text('video_id').notNull(),
-    field: text('field', { enum: ['title', 'thumbnail'] }).notNull(),
+    field: text('field', { enum: ['title'] }).notNull(),
     previousValue: text('previous_value'),
     newValue: text('new_value'),
     /** Views at the moment the change was observed, for before/after context. */

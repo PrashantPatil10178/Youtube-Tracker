@@ -1,56 +1,41 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { parseAsString, useQueryState } from 'nuqs';
-import { useState } from 'react';
 
 import type { RosterChannel, RosterGroup } from '../config/roster';
 import { ROSTER_GROUPS } from '../config/roster';
 import { useTrackedChannels } from '../hooks/use-tracked-channels';
 import { useWorkspaces } from '../hooks/use-workspaces';
+import { AddChannelBar } from './add-channel-bar';
 import { ChannelCard } from './channel-card';
-import { ChannelSearch } from './channel-search';
 
 const GROUP_ORDER: RosterGroup[] = ['own', 'faculty', 'ssc', 'hsc'];
 
 export function ChannelsView() {
-  const {
-    channels,
-    add,
-    remove,
-    update,
-    reset,
-    hydrated,
-    error: serverError,
-    isMutating
-  } = useTrackedChannels();
-  const [value, setValue] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const { channels, remove, update, hydrated, isMutating } = useTrackedChannels();
   // Read-only here: the sidebar switcher owns writing this param, and views
   // only need to know which scope to query.
   const [workspaceParam] = useQueryState('ws', parseAsString.withDefault('all'));
 
-  const { workspaces } = useWorkspaces();
+  const { workspaces, isLoading: workspacesLoading } = useWorkspaces();
   const activeWorkspace = workspaces.find((w) => w.slug === workspaceParam);
+
+  // Workspaces load in their own query, separate from channels. While it's
+  // still pending, `workspaces` is `[]` and a real slug would resolve to no
+  // match — falling back to "show everything" in that gap would mount a card
+  // (and fire an analytics fetch) for every tracked channel, not just the
+  // active workspace's, before snapping back a moment later. "all" has no
+  // such gap since it means "show everything" regardless of workspace state.
+  const workspaceResolved = workspaceParam === 'all' || !workspacesLoading;
 
   // A channel outside the selected workspace is hidden, but "all" always shows
   // everything — including channels that belong to no workspace yet, which
   // would otherwise be unreachable and impossible to file.
-  const visible = activeWorkspace
-    ? channels.filter((c) => c.workspaceIds?.includes(activeWorkspace.id))
-    : channels;
-
-  const handleAdd = (event: React.FormEvent) => {
-    event.preventDefault();
-    const result = add(value);
-    if (result.ok) {
-      setValue('');
-      setError(null);
-    } else {
-      setError(result.reason);
-    }
-  };
+  const visible = !workspaceResolved
+    ? []
+    : activeWorkspace
+      ? channels.filter((c) => c.workspaceIds?.includes(activeWorkspace.id))
+      : channels;
 
   const grouped = GROUP_ORDER.map((group) => ({
     group,
@@ -62,41 +47,10 @@ export function ChannelsView() {
 
   return (
     <div className='flex flex-col gap-8'>
-      <form onSubmit={handleAdd} className='flex flex-col gap-2'>
-        <div className='flex flex-wrap gap-2'>
-          <Input
-            value={value}
-            onChange={(event) => {
-              setValue(event.target.value);
-              setError(null);
-            }}
-            placeholder='@handle, channel URL, or UC… ID'
-            aria-label='Channel to track'
-            className='max-w-md'
-          />
-          <Button type='submit' disabled={isMutating}>
-            {isMutating ? 'Saving…' : 'Track channel'}
-          </Button>
-          <Button type='button' variant='outline' onClick={reset}>
-            Reset to roster
-          </Button>
-        </div>
-        {(error || serverError) && (
-          <p className='text-destructive text-sm'>{error ?? serverError?.message}</p>
-        )}
-      </form>
-
-      <ChannelSearch
-        onAdd={(handleOrId) => {
-          const result = add(handleOrId);
-          setError(result.ok ? null : result.reason);
-        }}
-      />
+      <AddChannelBar />
 
       {hydrated && channels.length === 0 && (
-        <p className='text-muted-foreground text-sm'>
-          No channels tracked. Use “Reset to roster” to restore the Maharashtra Board set.
-        </p>
+        <p className='text-muted-foreground text-sm'>No channels tracked yet.</p>
       )}
 
       {grouped.map((section) => (

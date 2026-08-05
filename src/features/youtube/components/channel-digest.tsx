@@ -7,6 +7,31 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { channelDigestOptions } from '../api/queries';
+import type { ChannelDigest as ChannelDigestData } from '../api/types';
+import { planReveal, StreamingText } from './streaming-text';
+
+function DigestBody({ digest }: { digest: ChannelDigestData }) {
+  const paragraphs = digest.body.split('\n\n').filter(Boolean);
+  const { stagger, startDelays } = planReveal([digest.headline, ...paragraphs]);
+
+  return (
+    <div key={digest.headline} className='flex flex-col gap-2'>
+      <p className='text-sm font-medium'>
+        <StreamingText text={digest.headline} stagger={stagger} startDelay={startDelays[0]} />
+      </p>
+      {paragraphs.map((paragraph, index) => (
+        <p key={index} className='text-muted-foreground text-sm leading-relaxed'>
+          <StreamingText text={paragraph} stagger={stagger} startDelay={startDelays[index + 1]} />
+        </p>
+      ))}
+      {!digest.aiEnabled && (
+        <p className='text-muted-foreground text-xs'>
+          Set the AZURE_OPENAI_* environment variables for a written analysis.
+        </p>
+      )}
+    </div>
+  );
+}
 
 /**
  * AI write-up of a channel's recent performance.
@@ -58,19 +83,7 @@ export function ChannelDigest({ query }: { query: string }) {
           </Button>
         </div>
       ) : (
-        <div className='flex flex-col gap-2'>
-          <p className='text-sm font-medium'>{data.headline}</p>
-          {data.body.split('\n\n').map((paragraph, index) => (
-            <p key={index} className='text-muted-foreground text-sm leading-relaxed'>
-              {paragraph}
-            </p>
-          ))}
-          {!data.aiEnabled && (
-            <p className='text-muted-foreground text-xs'>
-              Set the AZURE_OPENAI_* environment variables for a written analysis.
-            </p>
-          )}
-        </div>
+        <DigestBody digest={data} />
       )}
     </div>
   );

@@ -156,12 +156,19 @@ export async function getChannelDelta(
   };
 }
 
-/** Recent title/thumbnail swaps for a channel, newest first. */
+/**
+ * Recent title swaps for a channel, newest first.
+ *
+ * Filtered to `field = 'title'` rather than trusting the column type alone:
+ * rows written before thumbnail-swap detection was removed may still hold
+ * `field = 'thumbnail'`, and those never represented a real edit (see
+ * `snapshot-diff.ts`).
+ */
 export async function getRecentChanges(channelId: string, limit = 20) {
   return db
     .select()
     .from(videoChange)
-    .where(eq(videoChange.channelId, channelId))
+    .where(and(eq(videoChange.channelId, channelId), eq(videoChange.field, 'title')))
     .orderBy(desc(videoChange.detectedAt))
     .limit(limit);
 }
@@ -172,7 +179,7 @@ export async function getChangesForChannels(channelIds: string[], limit = 50) {
   return db
     .select()
     .from(videoChange)
-    .where(inArray(videoChange.channelId, channelIds))
+    .where(and(inArray(videoChange.channelId, channelIds), eq(videoChange.field, 'title')))
     .orderBy(desc(videoChange.detectedAt))
     .limit(limit);
 }

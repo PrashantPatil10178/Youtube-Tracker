@@ -54,67 +54,28 @@ describe('diffReadings', () => {
     expect(diffReadings(before, [current('a', 'Current title')], NOW)).toEqual([]);
   });
 
-  test('a thumbnail swap is detected', () => {
+  test('a thumbnail-only difference is not reported', () => {
+    // Thumbnail swaps used to be detected by comparing normalised paths, but a
+    // genuine creator thumbnail replacement keeps the same CDN path — YouTube
+    // serves the new image from the same URL — so path-diffing only ever
+    // fired on unrelated processing-state noise, never a real edit, and the
+    // before/after images it reported were often visibly identical.
     const changes = diffReadings(
       [prior('a', 'T', 'https://i.ytimg.com/vi/a/old.jpg')],
       [current('a', 'T', 'https://i.ytimg.com/vi/a/new.jpg')],
       NOW
     );
-
-    expect(changes).toHaveLength(1);
-    expect(changes[0].field).toBe('thumbnail');
-  });
-
-  test('query strings on thumbnail URLs are not edits', () => {
-    // YouTube appends per-request signing params; comparing raw URLs would
-    // report a thumbnail swap on essentially every read.
-    const changes = diffReadings(
-      [prior('a', 'T', 'https://i.ytimg.com/vi/a/hq.jpg?sqp=ABC&rs=XYZ')],
-      [current('a', 'T', 'https://i.ytimg.com/vi/a/hq.jpg?sqp=DIFFERENT&rs=OTHER')],
-      NOW
-    );
     expect(changes).toEqual([]);
   });
 
-  test('a rotating CDN host is not a thumbnail swap', () => {
-    // YouTube serves the same image from i.ytimg.com, i2.ytimg.com and friends.
-    // Comparing full URLs recorded those rotations as creator edits.
-    const changes = diffReadings(
-      [prior('a', 'T', 'https://i2.ytimg.com/vi/abc/hqdefault.jpg')],
-      [current('a', 'T', 'https://i.ytimg.com/vi/abc/hqdefault.jpg')],
-      NOW
-    );
-    expect(changes).toEqual([]);
-  });
-
-  test('a genuinely different image is still a swap despite host rotation', () => {
-    const changes = diffReadings(
-      [prior('a', 'T', 'https://i2.ytimg.com/vi/abc/hqdefault.jpg')],
-      [current('a', 'T', 'https://i.ytimg.com/vi/abc/maxresdefault.jpg')],
-      NOW
-    );
-    expect(changes).toHaveLength(1);
-    expect(changes[0].field).toBe('thumbnail');
-  });
-
-  test('a missing thumbnail on either side is not a swap', () => {
-    // Absence of evidence, not evidence of change — one source omitting the
-    // field would otherwise look like the creator replaced the image.
-    expect(
-      diffReadings([prior('a', 'T', null)], [current('a', 'T', 'https://x/new.jpg')], NOW)
-    ).toEqual([]);
-    expect(
-      diffReadings([prior('a', 'T', 'https://x/old.jpg')], [current('a', 'T', null)], NOW)
-    ).toEqual([]);
-  });
-
-  test('title and thumbnail changing together yield two changes', () => {
+  test('a title change is still detected when the thumbnail also differs', () => {
     const changes = diffReadings(
       [prior('a', 'Old', 'https://x/old.jpg')],
       [current('a', 'New', 'https://x/new.jpg')],
       NOW
     );
-    expect(changes.map((c) => c.field).toSorted()).toEqual(['thumbnail', 'title']);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({ field: 'title', previousValue: 'Old', newValue: 'New' });
   });
 
   test('videos are compared independently', () => {
@@ -150,11 +111,6 @@ describe('diffReadings', () => {
     const changes = diffReadings(before, [current('a', 'Brand new title')], NOW);
     expect(changes).toHaveLength(1);
     expect(changes[0].newValue).toBe('Brand new title');
-  });
-
-  test('a thumbnail reverting to a seen image is not a swap', () => {
-    const before = [prior('a', 'T', 'https://x/b.jpg'), prior('a', 'T', 'https://x/a.jpg')];
-    expect(diffReadings(before, [current('a', 'T', 'https://x/a.jpg')], NOW)).toEqual([]);
   });
 
   test('null views are preserved rather than coerced to zero', () => {

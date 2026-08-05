@@ -31,6 +31,7 @@ export type LeaderboardRow = {
   channelId: string;
   label: string;
   handle: string | null;
+  avatar: string | null;
   subscribers: number | null;
   /** Uploads inside the window. */
   uploads: number;
@@ -83,6 +84,12 @@ export async function computeLeaderboard(
   const cutoff = Date.now() - windowDays * 24 * 36e5;
   const failed: string[] = [];
 
+  // Two roster entries can resolve to the same real channel — e.g. tracked
+  // once by @handle and again by its UC… id/URL. Left unguarded, that ranks
+  // the same channel twice and produces two rows sharing a React key
+  // downstream.
+  const seenChannelIds = new Set<string>();
+
   const rows = await poolMap(channels, 8, async (channel) => {
     try {
       const channelId = await resolveChannelId(channel.id);
@@ -90,6 +97,8 @@ export async function computeLeaderboard(
         failed.push(channel.label);
         return null;
       }
+      if (seenChannelIds.has(channelId)) return null;
+      seenChannelIds.add(channelId);
 
       const [summary, deep, delta] = await Promise.all([
         fetchChannelSummary(channelId),
@@ -122,6 +131,7 @@ export async function computeLeaderboard(
         channelId,
         label: channel.label,
         handle: summary.handle,
+        avatar: summary.avatar,
         subscribers: summary.subscribers,
         uploads,
         uploadsTruncated,

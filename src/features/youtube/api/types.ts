@@ -30,11 +30,11 @@ export type ChannelDelta = {
   totalViews: number | null;
 } | null;
 
-/** A title/thumbnail swap detected between two snapshots, as sent over the wire. */
+/** A title swap detected between two snapshots, as sent over the wire. */
 export type PersistedChange = {
   id: string;
   videoId: string;
-  field: 'title' | 'thumbnail';
+  field: 'title';
   previousValue: string | null;
   newValue: string | null;
   viewsAtChange: number | null;
@@ -109,6 +109,7 @@ export type LeaderboardRow = {
   channelId: string;
   label: string;
   handle: string | null;
+  avatar: string | null;
   subscribers: number | null;
   uploads: number;
   uploadsTruncated: boolean;

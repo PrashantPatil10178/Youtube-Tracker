@@ -1,5 +1,6 @@
 'use client';
 
+import { Icons } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import { channelAnalyticsOptions } from '../api/queries';
 import type { RosterChannel, RosterGroup } from '../config/roster';
 import { ChannelSettings } from './channel-settings';
 import { ChannelDigest } from './channel-digest';
-import type { ScoredVideo } from '../api/types';
+import type { PersistedChange, ScoredVideo } from '../api/types';
 
 const PERFORMANCE_STYLES: Record<string, string> = {
   breakout: 'bg-chart-3/15 text-chart-3 border-chart-3/30',
@@ -38,9 +39,7 @@ export function ChannelCard({
   onUpdate?: (patch: { group?: RosterGroup }) => void;
   onRemove: () => void;
 }) {
-  const { data, isPending, isError, error, refetch, isFetching } = useQuery(
-    channelAnalyticsOptions(query)
-  );
+  const { data, isPending, isError, error, refetch } = useQuery(channelAnalyticsOptions(query));
 
   if (isPending) return <ChannelCardSkeleton />;
 
@@ -88,9 +87,14 @@ export function ChannelCard({
           )}
 
           <div className='min-w-0 flex-1'>
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center gap-1.5'>
               <p className='truncate font-medium'>{channel.title}</p>
-              {isFetching && <span className='text-muted-foreground text-xs'>updating…</span>}
+              {channel.isVerified && (
+                <Icons.badgeCheck
+                  className='text-muted-foreground size-3.5 shrink-0'
+                  aria-label='Verified'
+                />
+              )}
             </div>
             <p className='text-muted-foreground truncate text-sm'>
               {channel.handle ?? channel.channelId}
@@ -119,15 +123,6 @@ export function ChannelCard({
             }
           />
           <Stat label='Total views' value={formatCompact(channel.totalViews)} />
-          <Stat label='Videos' value={formatCompact(channel.videoCount)} />
-          <Stat
-            label='Upload cadence'
-            value={cadenceDays === null ? '—' : `${cadenceDays}d`}
-            hint='median gap'
-          />
-        </div>
-
-        <div className='grid grid-cols-2 gap-4 sm:grid-cols-3'>
           <Stat
             label='Typical video'
             value={formatCompact(baseline.medianViews)}
@@ -137,6 +132,12 @@ export function ChannelCard({
             label='Projected 30d'
             value={formatCompact(projection.next30?.projected ?? null)}
             hint={projection.next30 ? `${formatCompact(projection.next30.perDay)}/day` : undefined}
+          />
+          <Stat label='Videos' value={formatCompact(channel.videoCount)} />
+          <Stat
+            label='Upload cadence'
+            value={cadenceDays === null ? '—' : `${cadenceDays}d`}
+            hint='median gap'
           />
           <Stat label='Breakouts' value={String(breakouts.length)} hint='vs own baseline' />
         </div>
@@ -161,21 +162,7 @@ export function ChannelCard({
             </p>
             <ul className='flex flex-col gap-2'>
               {recentChanges.slice(0, 3).map((change) => (
-                <li key={change.id} className='text-xs'>
-                  <Badge variant='outline' className='mr-2'>
-                    {change.field}
-                  </Badge>
-                  {change.field === 'title' ? (
-                    <span className='text-muted-foreground'>
-                      <span className='line-through'>{change.previousValue}</span> →{' '}
-                      <span className='text-foreground'>{change.newValue}</span>
-                    </span>
-                  ) : (
-                    <span className='text-muted-foreground'>
-                      thumbnail swapped at {formatCompact(change.viewsAtChange)} views
-                    </span>
-                  )}
-                </li>
+                <ChangeRow key={change.id} change={change} />
               ))}
             </ul>
           </div>
@@ -213,6 +200,7 @@ function VideoRow({ video }: { video: ScoredVideo }) {
         </a>
         <p className='text-muted-foreground text-xs tabular-nums'>
           {formatCompact(video.views)} views · {formatCompact(video.vph)}/hr
+          {video.engagement !== null && ` · ${video.engagement.toFixed(1)}% liked`}
         </p>
       </div>
 
@@ -229,6 +217,20 @@ function VideoRow({ video }: { video: ScoredVideo }) {
           {video.outlierScore}×{video.provisional ? '*' : ''}
         </Badge>
       )}
+    </li>
+  );
+}
+
+function ChangeRow({ change }: { change: PersistedChange }) {
+  return (
+    <li className='text-xs'>
+      <Badge variant='outline' className='mr-2'>
+        {change.field}
+      </Badge>
+      <span className='text-muted-foreground'>
+        <span className='line-through'>{change.previousValue}</span> →{' '}
+        <span className='text-foreground'>{change.newValue}</span>
+      </span>
     </li>
   );
 }

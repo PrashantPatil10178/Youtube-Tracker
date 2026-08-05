@@ -132,6 +132,17 @@ function BoardCard({ board, rows }: { board: Board; rows: LeaderboardRow[] }) {
               <span className='w-6 shrink-0 text-sm tabular-nums'>
                 {MEDALS[index] ?? `#${index + 1}`}
               </span>
+              {row.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={row.avatar}
+                  alt=''
+                  className='size-7 shrink-0 rounded-full object-cover'
+                  loading='lazy'
+                />
+              ) : (
+                <div className='bg-muted size-7 shrink-0 rounded-full' />
+              )}
               <div className='min-w-0 flex-1'>
                 <p className='truncate text-sm'>{row.label}</p>
                 <p className='text-muted-foreground truncate text-xs'>{row.handle}</p>

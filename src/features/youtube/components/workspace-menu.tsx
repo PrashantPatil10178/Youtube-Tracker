@@ -1,6 +1,7 @@
 'use client';
 
 import { Icons } from '@/components/icons';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,10 +76,21 @@ export function WorkspaceMenu() {
     setOpen(false);
   };
 
+  // Closing via Escape, an outside click, or selecting a workspace all skip
+  // `submit`, so without this the create form would still be showing — with
+  // whatever was half-typed — the next time the menu opens.
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setCreating(false);
+      setName('');
+    }
+  };
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenu open={open} onOpenChange={onOpenChange}>
           <DropdownMenuTrigger
             render={
               <SidebarMenuButton
@@ -136,24 +148,38 @@ export function WorkspaceMenu() {
             <DropdownMenuSeparator />
 
             {creating ? (
-              <form onSubmit={submit} className='p-1'>
+              <form onSubmit={submit} className='flex items-center gap-1.5 p-1'>
                 <Input
                   autoFocus
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  onKeyDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                    if (event.key === 'Escape') {
+                      setCreating(false);
+                      setName('');
+                    }
+                  }}
                   placeholder='Class 8, Personal…'
                   aria-label='New workspace name'
                   className='h-8'
                 />
+                <Button
+                  type='submit'
+                  size='sm'
+                  className='h-8'
+                  disabled={isMutating || !name.trim()}
+                >
+                  Add
+                </Button>
               </form>
             ) : (
               <DropdownMenuItem
-                onClick={(event) => {
-                  // Keep the menu open so the input can be typed into.
-                  event.preventDefault();
-                  setCreating(true);
-                }}
+                // Base UI closes the menu on click regardless of
+                // preventDefault — closeOnClick is the only way to keep it
+                // open so the input can be typed into.
+                closeOnClick={false}
+                onClick={() => setCreating(true)}
                 className='gap-2'
               >
                 <div className='flex size-6 items-center justify-center rounded-md border border-dashed'>

@@ -102,6 +102,12 @@ export async function computeWorkspaceVideos(
   /** Channel label → subscribers, for share-of-workspace charts. */
   const subscribers: Array<[string, number | null]> = [];
 
+  // Two roster entries can resolve to the same real channel — e.g. tracked
+  // once by @handle and again by its UC… id/URL. Left unguarded, that
+  // duplicates every one of that channel's videos in the list and produces
+  // two rows sharing a React key downstream.
+  const seenChannelIds = new Set<string>();
+
   // Lower than the old RSS-only pool (12): InnerTube is a live, rate-limitable
   // API rather than a static CDN file, and each channel now costs several
   // requests (listing + precise stats), not one.
@@ -112,6 +118,8 @@ export async function computeWorkspaceVideos(
         failed.push(channel.label);
         return;
       }
+      if (seenChannelIds.has(channelId)) return;
+      seenChannelIds.add(channelId);
 
       // precise: false — one request per video is fine for a single channel
       // (see the analytics/digest routes) but not fanned out across a whole
@@ -242,6 +250,11 @@ export async function computeWorkspaceInsights(
     keywords: string[];
   }> = [];
 
+  // Two roster entries can resolve to the same real channel — e.g. tracked
+  // once by @handle and again by its UC… id/URL. Left unguarded, that scores
+  // the same videos twice and produces two "top" rows sharing a React key.
+  const seenChannelIds = new Set<string>();
+
   await pool(targets, 5, async (channel) => {
     try {
       const channelId = await resolveChannelId(channel.id);
@@ -249,6 +262,8 @@ export async function computeWorkspaceInsights(
         failed.push(channel.label);
         return;
       }
+      if (seenChannelIds.has(channelId)) return;
+      seenChannelIds.add(channelId);
 
       const sample = await getChannelSample(channelId);
       if (!sample.baseline.reliable) return;
@@ -326,7 +341,7 @@ export type WatchEvent =
       at: string;
       channelLabel: string;
       isOwn: boolean;
-      field: 'title' | 'thumbnail';
+      field: 'title';
       previousValue: string | null;
       newValue: string | null;
       viewsAtChange: number | null;

@@ -83,8 +83,8 @@ export function WatchView() {
             <p className='text-muted-foreground text-xs'>
               Edits are detected by comparing snapshots taken when a channel is viewed, so an empty
               list means &ldquo;not yet observed&rdquo; rather than &ldquo;nothing changed&rdquo;.
-              YouTube does not expose a creator&apos;s own A/B tests to anyone else — a title or
-              thumbnail swap on a live video is the closest observable signal.
+              YouTube does not expose a creator&apos;s own A/B tests to anyone else — a title swap
+              on a live video is the closest observable signal.
             </p>
           </>
         )
@@ -101,29 +101,18 @@ function EventRow({ event }: { event: WatchEvent }) {
           {event.field} swap
         </Badge>
         <div className='min-w-0 flex-1'>
-          {event.field === 'title' ? (
-            <p className='text-sm'>
-              <span className='text-muted-foreground line-through'>{event.previousValue}</span>
-              <br />
-              <a
-                href={event.url}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='hover:underline'
-              >
-                {event.newValue}
-              </a>
-            </p>
-          ) : (
+          <p className='text-sm'>
+            <span className='text-muted-foreground line-through'>{event.previousValue}</span>
+            <br />
             <a
               href={event.url}
               target='_blank'
               rel='noopener noreferrer'
-              className='text-sm hover:underline'
+              className='hover:underline'
             >
-              Thumbnail replaced
+              {event.newValue}
             </a>
-          )}
+          </p>
           <p className='text-muted-foreground mt-1 text-xs'>
             {event.channelLabel}
             {event.viewsAtChange !== null &&

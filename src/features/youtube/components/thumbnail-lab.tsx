@@ -10,7 +10,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { compareThumbnails } from '../api/service';
-import type { ThumbnailCandidateInput } from '../api/types';
+import type { CandidateScore, ThumbnailCandidateInput, ThumbnailComparison } from '../api/types';
+import { planReveal, StreamingText } from './streaming-text';
 
 type Slot = { id: string; title: string; imageUrl: string };
 
@@ -18,6 +19,67 @@ const EMPTY: Slot[] = [
   { id: 'a', title: '', imageUrl: '' },
   { id: 'b', title: '', imageUrl: '' }
 ];
+
+function ScoreBreakdown({ score }: { score: CandidateScore }) {
+  const { stagger, startDelays } = planReveal([...score.strengths, ...score.weaknesses]);
+
+  return (
+    <div className='flex flex-col gap-3 border-t pt-4'>
+      <div className='flex items-baseline justify-between'>
+        <span className='text-2xl font-medium tabular-nums'>{score.predictedCtr}%</span>
+        <span className='text-muted-foreground text-xs'>
+          predicted CTR · {score.confidence}% confidence
+        </span>
+      </div>
+      <ul className='flex flex-col gap-1'>
+        {score.strengths.map((s, index) => (
+          <li key={s} className='text-chart-3 text-xs'>
+            + <StreamingText text={s} stagger={stagger} startDelay={startDelays[index]} />
+          </li>
+        ))}
+        {score.weaknesses.map((w, index) => (
+          <li key={w} className='text-muted-foreground text-xs'>
+            −{' '}
+            <StreamingText
+              text={w}
+              stagger={stagger}
+              startDelay={startDelays[score.strengths.length + index]}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ReasoningCard({ result }: { result: ThumbnailComparison }) {
+  const { stagger, startDelays } = planReveal([result.reasoning, ...result.suggestions]);
+
+  return (
+    <Card>
+      <CardContent className='flex flex-col gap-3 py-6'>
+        <p className='text-muted-foreground text-xs tracking-wide uppercase'>Why</p>
+        <p className='text-sm leading-relaxed'>
+          <StreamingText text={result.reasoning} stagger={stagger} startDelay={startDelays[0]} />
+        </p>
+        {result.suggestions.length > 0 && (
+          <>
+            <p className='text-muted-foreground mt-2 text-xs tracking-wide uppercase'>
+              Suggested edits
+            </p>
+            <ul className='flex flex-col gap-1'>
+              {result.suggestions.map((s, index) => (
+                <li key={s} className='text-muted-foreground text-sm'>
+                  · <StreamingText text={s} stagger={stagger} startDelay={startDelays[index + 1]} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 /**
  * Thumbnail + title A/B scoring.
@@ -116,30 +178,7 @@ export function ThumbnailLab() {
                   />
                 </div>
 
-                {score && (
-                  <div className='flex flex-col gap-3 border-t pt-4'>
-                    <div className='flex items-baseline justify-between'>
-                      <span className='text-2xl font-medium tabular-nums'>
-                        {score.predictedCtr}%
-                      </span>
-                      <span className='text-muted-foreground text-xs'>
-                        predicted CTR · {score.confidence}% confidence
-                      </span>
-                    </div>
-                    <ul className='flex flex-col gap-1'>
-                      {score.strengths.map((s) => (
-                        <li key={s} className='text-chart-3 text-xs'>
-                          + {s}
-                        </li>
-                      ))}
-                      {score.weaknesses.map((w) => (
-                        <li key={w} className='text-muted-foreground text-xs'>
-                          − {w}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {score && <ScoreBreakdown score={score} />}
               </CardContent>
             </Card>
           );
@@ -164,28 +203,7 @@ export function ThumbnailLab() {
         <p className='text-destructive text-sm'>{(comparison.error as Error).message}</p>
       )}
 
-      {result && (
-        <Card>
-          <CardContent className='flex flex-col gap-3 py-6'>
-            <p className='text-muted-foreground text-xs tracking-wide uppercase'>Why</p>
-            <p className='text-sm leading-relaxed'>{result.reasoning}</p>
-            {result.suggestions.length > 0 && (
-              <>
-                <p className='text-muted-foreground mt-2 text-xs tracking-wide uppercase'>
-                  Suggested edits
-                </p>
-                <ul className='flex flex-col gap-1'>
-                  {result.suggestions.map((s) => (
-                    <li key={s} className='text-muted-foreground text-sm'>
-                      · {s}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {result && <ReasoningCard result={result} />}
     </form>
   );
 }

@@ -18,7 +18,7 @@ export type SnapshotSource = 'rss' | 'deep';
 
 export type DetectedChange = {
   videoId: string;
-  field: 'title' | 'thumbnail';
+  field: 'title';
   previousValue: string | null;
   newValue: string | null;
   viewsAtChange: number | null;
@@ -26,14 +26,18 @@ export type DetectedChange = {
 };
 
 /**
- * Reduces a thumbnail URL to the parts that identify the *image*.
+ * Reduces a thumbnail URL to the parts that survive a request without the
+ * underlying picture changing — per-request signing params (`?sqp=…&rs=…`)
+ * and the CDN host, which rotates between `i.ytimg.com`, `i2.ytimg.com`, etc.
  *
- * Two things vary without the picture changing:
- *  - per-request signing params (`?sqp=…&rs=…`)
- *  - the CDN host, which rotates between `i.ytimg.com`, `i2.ytimg.com`, etc.
- *
- * Both were being recorded as thumbnail swaps. What actually identifies the
- * image is the path — `/vi/<videoId>/<name>.jpg`.
+ * Only used for storage, not for change detection: the path itself
+ * (`/vi/<videoId>/<name>.jpg`) is stable across a genuine creator thumbnail
+ * swap too — YouTube serves the new image from the same URL — so comparing
+ * paths cannot detect a real swap. The only thing that reliably differs
+ * between two readings of an *unchanged* thumbnail is internal processing
+ * state (e.g. a `_customN` suffix appearing once YouTube finishes generating
+ * the custom-thumbnail derivative), which produced "swap" reports where the
+ * before/after images were visibly identical. See `diffReadings`.
  */
 export function normaliseThumb(url: string | null): string | null {
   if (!url) return null;
@@ -60,6 +64,14 @@ export type PriorReading = {
  *
  * `previous` must already be filtered to a single source and ordered
  * newest-first; mixing sources is exactly what caused that bug.
+ *
+ * Title only: thumbnail swaps used to be detected the same way (comparing
+ * normalised paths), but that compares the wrong thing — a genuine custom
+ * thumbnail replacement keeps the same CDN path, so path-diffing can never
+ * catch it, and the only time the path *did* differ between two readings of
+ * an unchanged video, it was YouTube's own thumbnail-processing state
+ * catching up, not a creator edit. Title text, by contrast, is the thing
+ * itself — a genuine diff there is genuine evidence.
  */
 export function diffReadings(
   previous: PriorReading[],
@@ -72,18 +84,12 @@ export function diffReadings(
     if (!lastByVideo.has(row.videoId)) lastByVideo.set(row.videoId, row);
   }
 
-  // Every value previously seen per video. A genuine edit moves to something
+  // Every title previously seen per video. A genuine edit moves to something
   // new; returning to a value already recorded is flapping, not an edit.
   const seenTitles = new Map<string, Set<string>>();
-  const seenThumbs = new Map<string, Set<string>>();
   for (const row of previous) {
-    if (!seenTitles.has(row.videoId)) {
-      seenTitles.set(row.videoId, new Set());
-      seenThumbs.set(row.videoId, new Set());
-    }
+    if (!seenTitles.has(row.videoId)) seenTitles.set(row.videoId, new Set());
     seenTitles.get(row.videoId)!.add(row.title);
-    const t = normaliseThumb(row.thumbnail);
-    if (t) seenThumbs.get(row.videoId)!.add(t);
   }
 
   const changes: DetectedChange[] = [];
@@ -105,21 +111,6 @@ export function diffReadings(
         field: 'title',
         previousValue: before.title,
         newValue: video.title,
-        viewsAtChange: video.views,
-        detectedAt: now
-      });
-    }
-
-    const beforeThumb = normaliseThumb(before.thumbnail);
-    const afterThumb = normaliseThumb(video.thumbnail);
-    const thumbIsNew = afterThumb ? !seenThumbs.get(video.videoId)?.has(afterThumb) : false;
-    // Both sides must be known — a missing thumbnail is absence of evidence.
-    if (beforeThumb && afterThumb && beforeThumb !== afterThumb && thumbIsNew) {
-      changes.push({
-        videoId: video.videoId,
-        field: 'thumbnail',
-        previousValue: beforeThumb,
-        newValue: afterThumb,
         viewsAtChange: video.views,
         detectedAt: now
       });
